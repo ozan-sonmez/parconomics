@@ -1,180 +1,114 @@
-/** 
- * Parconomics — Smart Parking Price Calculator
- * Designed & developed by Ozan Sonmez (Toronto, Canada)
- * Copyright © 2025
- */
-const { useMemo, useState } = React;
 
 const TAX_RATE = 13;
 const VALET_BASE = 55;
 
 function pad(n) { return String(n).padStart(2, "0"); }
+function addMinutes(d, m) { const c = new Date(d); c.setMinutes(c.getMinutes()+m); return c; }
+function addDays(d, k) { const c = new Date(d); c.setDate(c.getDate()+k); return c; }
 function ymd(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
-function clone(d) { return new Date(d.getTime()); }
-function addMinutes(d, m) { const c = clone(d); c.setMinutes(c.getMinutes()+m); return c; }
-function addDays(d, k) { const c = clone(d); c.setDate(c.getDate()+k); return c; }
-function isWeekend(d) { const w = d.getDay(); return w === 0 || w === 6; }
-function inDayWindow(d) { const h = d.getHours(); const m = d.getMinutes(); const t = h + m/60; return t >= 7 && t < 18; }
-function eveningBucketKey(d) { const h = d.getHours(); const base = h < 7 ? addDays(d, -1) : d; return `evening_${ymd(base)}`; }
+function isWeekend(d){ const w=d.getDay(); return w===0||w===6; }
+function inDayWindow(d){const h=d.getHours()+d.getMinutes()/60; return h>=7 && h<18;}
 
-function calcSelfTotal(startISO, endISO, holidaysSet) {
-  let s = new Date(startISO);
-  let e = new Date(endISO);
-  if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0;
-  if (e <= s) { e = addMinutes(e, 24*60); }
-  const buckets = {};
-  let cur = clone(s);
-  while (cur < e) {
-    const keyDate = ymd(cur);
-    const isHol = holidaysSet && holidaysSet.has(keyDate);
-    if (inDayWindow(cur)) {
-      const weekendOrHoliday = isWeekend(cur) || isHol;
-      const cap = weekendOrHoliday ? 10 : 32;
-      const key = `day_${keyDate}_${weekendOrHoliday ? "we_or_hol" : "wkday"}`;
-      if (!buckets[key]) buckets[key] = { sum: 0, cap };
-      buckets[key].sum += 5;
-    } else {
-      const key = eveningBucketKey(cur);
-      if (!buckets[key]) buckets[key] = { sum: 0, cap: 10 };
-      buckets[key].sum += 5;
-    }
-    cur = addMinutes(cur, 20);
-  }
-  let total = 0;
-  for (const k of Object.keys(buckets)) {
-    const { sum, cap } = buckets[k];
-    total += Math.min(sum, cap);
-  }
-  return total;
+function calcSelfTotal(startISO,endISO){
+ let s=new Date(startISO), e=new Date(endISO);
+ if(e<=s)e=addMinutes(e,24*60);
+ const buckets={}; let cur=new Date(s);
+ while(cur<e){
+   const key=ymd(cur);
+   const weekend=isWeekend(cur);
+   if(inDayWindow(cur)){
+     const cap=weekend?10:32;
+     const k=`day_${key}_${weekend?'we':'wd'}`;
+     if(!buckets[k])buckets[k]={sum:0,cap};
+     buckets[k].sum+=5;
+   }else{
+     const k=`night_${key}`;
+     if(!buckets[k])buckets[k]={sum:0,cap:10};
+     buckets[k].sum+=5;
+   }
+   cur=addMinutes(cur,20);
+ }
+ let total=0; for(const b in buckets){total+=Math.min(buckets[b].sum,buckets[b].cap);} return total;
 }
 
-function ceilHoursBetweenISO(startISO, endISO) {
-  const s = new Date(startISO); const e0 = new Date(endISO);
-  let e = e0; if (e <= s) e = addMinutes(e0, 24*60);
-  const hours = (e.getTime() - s.getTime()) / (1000*60*60);
-  return Math.max(1, Math.ceil(hours));
+function valetDaysByCutoff(startISO,endISO){
+ let s=new Date(startISO), e=new Date(endISO);
+ if(e<=s)e=addMinutes(e,24*60);
+ let cutoff=new Date(s.getFullYear(),s.getMonth(),s.getDate()+1,18,0,0);
+ let days=1; while(e>cutoff){days++; cutoff.setDate(cutoff.getDate()+1);} return days;
 }
 
-function toLocalDatetimeValue(d) {
-  const yyyy = d.getFullYear(); const mm = pad(d.getMonth()+1); const dd = pad(d.getDate());
-  const hh = pad(d.getHours()); const mi = pad(d.getMinutes());
-  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+function weekdayAbbr(d){
+ return new Intl.DateTimeFormat('en-US',{weekday:'short'}).format(d);
 }
 
-// Valet rule: first charge covers until NEXT day 18:00. Crossing any subsequent 18:00 adds 1 day.
-function valetDaysByCutoff(startISO, endISO) {
-  let s = new Date(startISO);
-  let e = new Date(endISO);
-  if (isNaN(s.getTime()) || isNaN(e.getTime())) return 1;
-  if (e <= s) e = addMinutes(e, 24 * 60);
-  let cutoff = new Date(s.getFullYear(), s.getMonth(), s.getDate() + 1, 18, 0, 0);
-  let days = 1;
-  while (e > cutoff) {
-    days += 1;
-    cutoff.setDate(cutoff.getDate() + 1);
-  }
-  ️return days;
+function nightsBetween(startISO,endISO){
+ let s=new Date(startISO), e=new Date(endISO);
+ if(e<=s)e=addMinutes(e,24*60);
+ let nights=0; let midnight=new Date(s.getFullYear(),s.getMonth(),s.getDate()+1,0,0,0);
+ while(e>midnight){nights++; midnight.setDate(midnight.getDate()+1);} return nights;
 }
 
-function toDate(iso){ const d = new Date(iso); return isNaN(d.getTime()) ? new Date() : d; }
-function weekdayName(d){ try { return new Intl.DateTimeFormat('en-US', { weekday:'long' }).format(d); } catch { return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()]; } }
+function App(){
+ const now=new Date();
+ const defStart=new Date(now.getFullYear(),now.getMonth(),now.getDate(),9,0);
+ const defEnd=new Date(now.getFullYear(),now.getMonth(),now.getDate(),18,0);
+ const [start,setStart]=React.useState(defStart.toISOString().slice(0,16));
+ const [end,setEnd]=React.useState(defEnd.toISOString().slice(0,16));
 
-// Hotel-style nights: count how many midnights are crossed between start and end.
-function nightsBetween(startISO, endISO){
-  let s = new Date(startISO); let e = new Date(endISO);
-  if (isNaN(s.getTime()) || isNaN(e.getTime())) return 1;
-  if (e <= s) e = addMinutes(e, 24*60);
-  // first midnight after start
-  let midnight = new Date(s.getFullYear(), s.getMonth(), s.getDate() + 1, 0, 0, 0);
-  let nights = 0;
-  while (e > midnight){
-    nights += 1;
-    midnight.setDate(midnight.getDate() + 1);
-  }
-  return nights;
+ const s=new Date(start), e=new Date(end);
+ const hours=Math.ceil((e-s)/(1000*60*60));
+ const nights=nightsBetween(start,end);
+ const self=calcSelfTotal(start,end);
+ const valet=valetDaysByCutoff(start,end)*VALET_BASE*(1+TAX_RATE/100);
+ const cheaperIsSelf=self<=valet;
+ const diff=Math.abs(self-valet);
+
+ const cards=[
+  {name:'Self Parking',total:self,cheap:cheaperIsSelf},
+  {name:'Valet Parking',total:valet,cheap:!cheaperIsSelf}
+ ];
+ const fmt=n=>`${n.toFixed(2)} CAD`;
+
+ return(
+  React.createElement('div',{className:'container'},
+   React.createElement('div',{className:'header'},React.createElement('h1',null,'🚗 Parconomics — by Ozan Sonmez')),
+   React.createElement('div',{className:'subtitle'},'Smart comparison between self and valet parking costs.'),
+   React.createElement('div',{className:'inputs'},
+     React.createElement('div',{className:'field'},
+       React.createElement('div',{className:'field-top'},
+         React.createElement('label',null,'Check-in'),
+         React.createElement('span',{className:'weekday'},weekdayAbbr(s))
+       ),
+       React.createElement('input',{className:'input',type:'datetime-local',value:start,onChange:e=>setStart(e.target.value)})
+     ),
+     React.createElement('div',{className:'field'},
+       React.createElement('div',{className:'field-top'},
+         React.createElement('label',null,'Check-out'),
+         React.createElement('span',{className:'weekday'},weekdayAbbr(e))
+       ),
+       React.createElement('input',{className:'input',type:'datetime-local',value:end,onChange:e=>setEnd(e.target.value)})
+     ),
+     React.createElement('div',{className:'pills'},
+       React.createElement('div',{className:'pill'},'Duration ≈ ',React.createElement('b',null,hours),' h'),
+       React.createElement('div',{className:'pill'},'Nights: ',React.createElement('b',null,nights))
+     )
+   ),
+   React.createElement('div',{className:'grid'},
+     cards.map(c=>
+       React.createElement('div',{key:c.name,className:'card '+(c.cheap?'cheap':'exp')},
+         React.createElement('div',{className:'card-head'},
+           React.createElement('strong',null,c.name),
+           React.createElement('span',{className:'badge'},c.cheap?'Cheaper':'More Expensive')
+         ),
+         React.createElement('div',{className:'price'},fmt(c.total)),
+         React.createElement('div',{className:'diff'},c.cheap?`Cheaper by ${fmt(diff)}`:`More expensive by ${fmt(diff)}`)
+       )
+     )
+   ),
+   React.createElement('div',{className:'footer'},'© 2025 Ozan Sonmez · Parconomics™')
+  )
+ );
 }
 
-function App() {
-  const now = new Date();
-  const defaultStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0, 0);
-  const defaultEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0, 0);
-
-  const [startISO, setStartISO] = React.useState(toLocalDatetimeValue(defaultStart));
-  const [endISO, setEndISO] = React.useState(toLocalDatetimeValue(defaultEnd));
-
-  const hours = React.useMemo(() => ceilHoursBetweenISO(startISO, endISO), [startISO, endISO]);
-  const selfParkingTotal = React.useMemo(() => calcSelfTotal(startISO, endISO), [startISO, endISO]);
-  const valetParkingTotal = React.useMemo(() => {
-    const days = valetDaysByCutoff(startISO, endISO);
-    return days * VALET_BASE * (1 + TAX_RATE / 100);
-  }, [startISO, endISO]);
-
-  const diff = Math.abs(selfParkingTotal - valetParkingTotal);
-  const items = React.useMemo(() => {
-    const list = [
-      { name: "Self Parking", total: selfParkingTotal },
-      { name: "Valet Parking", total: valetParkingTotal },
-    ];
-    const min = Math.min(...list.map((x) => x.total));
-    return list.map((x) => ({ ...x, cheap: x.total === min }));
-  }, [selfParkingTotal, valetParkingTotal]);
-
-  const startDate = toDate(startISO);
-  const endDate = toDate(endISO);
-  const checkinDay = weekdayName(startDate);
-  const checkoutDay = weekdayName(endDate);
-  const nights = nightsBetween(startISO, endISO);
-
-  const fmt = (n) => `${(Number(n) || 0).toFixed(2)} CAD`;
-
-  return (
-    <div className="container">
-      <div className="header">
-        <h1>🚗 Parconomics — by Ozan Sonmez</h1>
-      </div>
-      <div className="subtitle">Smart comparison between self and valet parking costs.</div>
-
-      <div className="inputs">
-        <div className="field">
-          <div className="field-top">
-            <label>Check-in</label>
-            <span className="weekday">{checkinDay}</span>
-          </div>
-          <input className="input" type="datetime-local" value={startISO} onChange={(e) => setStartISO(e.target.value)} />
-        </div>
-        <div className="field">
-          <div className="field-top">
-            <label>Check-out</label>
-            <span className="weekday">{checkoutDay}</span>
-          </div>
-          <input className="input" type="datetime-local" value={endISO} onChange={(e) => setEndISO(e.target.value)} />
-        </div>
-        <div className="pills">
-          <div className="pill">Duration ≈ <b>{hours}</b> hours</div>
-          <div className="pill">Nights: <b>{nights}</b></div>
-        </div>
-      </div>
-
-      <div className="grid">
-        {items.map((it) => (
-          <div key={it.name} className={`card ${it.cheap ? "cheap" : "exp"}`}>
-            <div className="card-head">
-              <strong>{it.name}</strong>
-              {it.cheap ? <span className="badge">Cheaper</span> : <span className="badge-danger">More Expensive</span>}
-            </div>
-            <div className="price">{fmt(it.total)}</div>
-            <div className="diff">
-              {it.cheap
-                ? `Cheaper by ${fmt(diff)}`
-                : `More expensive by ${fmt(diff)}`}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="footer">© 2025 Ozan Sonmez · Parconomics™</div>
-    </div>
-  );
-}
-
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
