@@ -57,7 +57,6 @@ function nightsBetween(startISO,endISO){
 
 function App(){
  const now=new Date();
- // both inputs default to *current local* datetime
  const [start,setStart]=React.useState(localISO(now));
  const [end,setEnd]=React.useState(localISO(now));
  const [calculated,setCalculated]=React.useState(false);
@@ -85,20 +84,16 @@ function App(){
     React.createElement('div',{className:'subtitle'},'Smart comparison between self and valet parking costs.'),
     React.createElement('div',{className:'inputs'},
       React.createElement('div',{className:'field'},
-        React.createElement('div',{className:'field-top'},
-          React.createElement('label',null,'Check-in'),
-          React.createElement('span',{className:'weekday'},weekdayAbbr(s))
-        ),
+        React.createElement('label',null,'Check-in'),
+        React.createElement('span',{className:'weekday'},weekdayAbbr(s)),
         React.createElement('input',{className:'input',type:'datetime-local',value:start,onChange:e=>{setStart(e.target.value); setCalculated(false);}})
       ),
       React.createElement('div',{className:'field'},
-        React.createElement('div',{className:'field-top'},
-          React.createElement('label',null,'Check-out'),
-          React.createElement('span',{className:'weekday'},weekdayAbbr(e))
-        ),
+        React.createElement('label',null,'Check-out'),
+        React.createElement('span',{className:'weekday'},weekdayAbbr(e)),
         React.createElement('input',{className:'input',type:'datetime-local',value:end,onChange:e=>{setEnd(e.target.value); setCalculated(false);}})
       ),
-      React.createElement('div',{className:'pills'},
+      React.createElement('div',{className:'meta'},
         React.createElement('div',{className:'pill'},'Duration ≈ ', React.createElement('b',null, hours ), ' h'),
         React.createElement('div',{className:'pill'},'Nights: ', React.createElement('b',null, nights ))
       ),
