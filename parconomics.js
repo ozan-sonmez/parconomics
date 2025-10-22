@@ -26,7 +26,7 @@ function calcSelfTotal(startISO,endISO){
      buckets[k].sum+=5;
    }else{
      const k=`night_${key}`;
-     if(!buckets[k]) buckets[k]={sum:0,cap:10};
+     if(!buckets[k])buckets[k]={sum:0,cap:10};
      buckets[k].sum+=5;
    }
    cur=addMinutes(cur,20);
@@ -85,17 +85,20 @@ function App(){
     React.createElement('div',{className:'inputs'},
       React.createElement('div',{className:'field'},
         React.createElement('label',null,'Check-in'),
-        React.createElement('span',{className:'weekday'},weekdayAbbr(s)),
-        React.createElement('input',{className:'input',type:'datetime-local',value:start,onChange:e=>{setStart(e.target.value); setCalculated(false);}})
+        React.createElement('div',{className:'control'},
+          React.createElement('input',{className:'input',type:'datetime-local',value:start,onChange:e=>{setStart(e.target.value); setCalculated(false);}}),
+          React.createElement('span',{className:'weekday'},weekdayAbbr(s))
+        )
       ),
       React.createElement('div',{className:'field'},
         React.createElement('label',null,'Check-out'),
-        React.createElement('span',{className:'weekday'},weekdayAbbr(e)),
-        React.createElement('input',{className:'input',type:'datetime-local',value:end,onChange:e=>{setEnd(e.target.value); setCalculated(false);}})
+        React.createElement('div',{className:'control'},
+          React.createElement('input',{className:'input',type:'datetime-local',value:end,onChange:e=>{setEnd(e.target.value); setCalculated(false);}}),
+          React.createElement('span',{className:'weekday'},weekdayAbbr(e))
+        )
       ),
       React.createElement('div',{className:'meta'},
-        React.createElement('div',{className:'pill'},'Duration ≈ ', React.createElement('b',null, hours ), ' h'),
-        React.createElement('div',{className:'pill'},'Nights: ', React.createElement('b',null, nights ))
+        React.createElement('div',{className:'pill'},`Duration ≈ ${hours} h · Nights: ${nights}`)
       ),
       React.createElement('div',{className:'calcbar'},
         React.createElement('button',{className:'btn', onClick:()=>setCalculated(true)}, 'Calculate')
