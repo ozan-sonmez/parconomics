@@ -6,11 +6,10 @@ const addMin=(d,m)=>{const c=new Date(d); c.setMinutes(c.getMinutes()+m); return
 const addDay=(d,k)=>{const c=new Date(d); c.setDate(c.getDate()+k); return c;}
 const isWE=d=>[0,6].includes(d.getDay());
 
-function ovm(a,b,c,d){
+function overlapMs(a,b,c,d){
   const s=Math.max(a.getTime(),c.getTime());
   const e=Math.min(b.getTime(),d.getTime());
-  if(e<=s) return 0;
-  return Math.floor((e-s)/60000);
+  return Math.max(0, e-s);
 }
 
 function selfTotal(sISO,eISO){
@@ -18,19 +17,18 @@ function selfTotal(sISO,eISO){
   if(e<=s) e=addMin(e,24*60);
   let total=0, cur=new Date(s.getFullYear(),s.getMonth(),s.getDate());
   while(cur<e){
-    const dStart=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate(),7,0,0);
-    const dEnd  =new Date(cur.getFullYear(),cur.getMonth(),cur.getDate(),18,0,0);
-    const nStart=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate(),18,0,0);
-    const nEnd  =new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1,7,0,0);
+    const dayStart=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate(),7,0,0);
+    const dayEnd  =new Date(cur.getFullYear(),cur.getMonth(),cur.getDate(),18,0,0);
+    const nightStart=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate(),18,0,0);
+    const nightEnd  =new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1,7,0,0);
 
-    const dm=ovm(s,e,dStart,dEnd);
-    if(dm>0){
-      const cap=isWE(dStart)?10:32;
-      total+=Math.min(Math.ceil(dm/20)*5, cap);
+    if(overlapMs(s,e, dayStart, dayEnd) > 0){
+      const cap = isWE(dayStart) ? 10 : 32;
+      total += cap;
     }
-    const nm=ovm(s,e,nStart,nEnd);
-    if(nm>0){ total+=Math.min(Math.ceil(nm/20)*5, 10); }
-
+    if(overlapMs(s,e, nightStart, nightEnd) > 0){
+      total += 10;
+    }
     cur=addDay(cur,1);
   }
   return total;
@@ -108,7 +106,7 @@ function App(){
         )) : <div className="placeholder">Choose dates & tap Calculate to see prices.</div>}
       </div>
 
-      <div className="footer">© 2025 Ozan Sonmez · Parconomics™</div>
+      <div className="footer">© 2025 Ozan Sonmez · Parconomics™ v16</div>
     </div>
   );
 }
