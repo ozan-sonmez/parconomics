@@ -4,13 +4,18 @@ const pad=n=>String(n).padStart(2,'0');
 const localISO=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const addMin=(d,m)=>{const c=new Date(d); c.setMinutes(c.getMinutes()+m); return c;}
 const addDay=(d,k)=>{const c=new Date(d); c.setDate(c.getDate()+k); return c;}
-const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const isWE=d=>[0,6].includes(d.getDay());
-function ovm(a,b,c,d){const s=Math.max(a.getTime(),c.getTime()), e=Math.min(b.getTime(),d.getTime()); return Math.max(0, Math.ceil((e-s)/60000));}
 
-// Self Parking with morning grace up to 07:30 on checkout day
+function ovm(a,b,c,d){
+  const s=Math.max(a.getTime(),c.getTime());
+  const e=Math.min(b.getTime(),d.getTime());
+  if(e<=s) return 0;
+  return Math.floor((e-s)/60000);
+}
+
 function selfTotal(sISO,eISO){
-  let s=new Date(sISO), e=new Date(eISO); if(e<=s) e=addMin(e,24*60);
+  let s=new Date(sISO), e=new Date(eISO);
+  if(e<=s) e=addMin(e,24*60);
   let total=0, cur=new Date(s.getFullYear(),s.getMonth(),s.getDate());
   while(cur<e){
     const dStart=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate(),7,0,0);
@@ -18,10 +23,7 @@ function selfTotal(sISO,eISO){
     const nStart=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate(),18,0,0);
     const nEnd  =new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1,7,0,0);
 
-    let dm=ovm(s,e,dStart,dEnd);
-    const graceLimit=new Date(dStart.getFullYear(), dStart.getMonth(), dStart.getDate(), 7, 30, 0);
-    if(e<=graceLimit && e>dStart){ dm=0; } // fold small morning into night
-
+    const dm=ovm(s,e,dStart,dEnd);
     if(dm>0){
       const cap=isWE(dStart)?10:32;
       total+=Math.min(Math.ceil(dm/20)*5, cap);
@@ -35,14 +37,16 @@ function selfTotal(sISO,eISO){
 }
 
 function valetDays(sISO,eISO){
-  let s=new Date(sISO), e=new Date(eISO); if(e<=s) e=addMin(e,24*60);
-  let cut=new Date(s.getFullYear(),s.getMonth(),s.getDate()+1,18,0,0), d=1; 
+  let s=new Date(sISO), e=new Date(eISO);
+  if(e<=s) e=addMin(e,24*60);
+  let cut=new Date(s.getFullYear(),s.getMonth(),s.getDate()+1,18,0,0), d=1;
   while(e>cut){ d++; cut.setDate(cut.getDate()+1); } return d;
 }
 
 const wkAbbr=d=>new Intl.DateTimeFormat('en-US',{weekday:'short'}).format(d);
 function nights(sISO,eISO){
-  let s=new Date(sISO), e=new Date(eISO); if(e<=s) e=addMin(e,24*60);
+  let s=new Date(sISO), e=new Date(eISO);
+  if(e<=s) e=addMin(e,24*60);
   let n=0, mid=new Date(s.getFullYear(),s.getMonth(),s.getDate()+1,0,0,0);
   while(e>mid){ n++; mid.setDate(mid.getDate()+1);} return n;
 }
